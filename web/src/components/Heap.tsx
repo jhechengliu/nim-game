@@ -1,5 +1,4 @@
 import { Box, Button, Stack, Typography } from '@mui/material'
-import { useState } from 'react'
 
 interface HeapProps {
   size: number

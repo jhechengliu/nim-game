@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Container, Typography, Box, Button, Stack, Paper, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, Divider, IconButton, Menu, MenuItem as MuiMenuItem } from '@mui/material'
 import SettingsIcon from '@mui/icons-material/Settings'
 import Heap from './components/Heap'
@@ -6,6 +6,14 @@ import { GameState, Difficulty, makeMove, getOptimalMove } from './services/game
 
 type GameMode = 'normal' | 'misere'
 type GamePhase = 'lobby' | 'settings' | 'playing' | 'gameOver'
+
+interface GameOption {
+  title: string;
+  items: Array<{
+    label: string;
+    desc: string;
+  }>;
+}
 
 function App() {
   const [gamePhase, setGamePhase] = useState<GamePhase>('lobby')
@@ -244,13 +252,13 @@ function App() {
               {
                 title: 'Tips:',
                 items: [
-                  { label: '', desc: 'Leave even number of heaps' },
-                  { label: '', desc: 'Make nim-sum zero for optimal play' },
-                  { label: '', desc: 'Watch max take limit if set' }
+                  { label: 'Tip 1', desc: 'Leave even number of heaps' },
+                  { label: 'Tip 2', desc: 'Make nim-sum zero for optimal play' },
+                  { label: 'Tip 3', desc: 'Watch max take limit if set' }
                 ]
               }
-            ].map((section, sectionIndex) => (
-              <Box key={sectionIndex} sx={{ mt: sectionIndex > 0 ? 2 : 0 }}>
+            ].map((section: GameOption, index) => (
+              <Box key={index} sx={{ mt: index > 0 ? 2 : 0 }}>
                 <Typography 
                   variant="h6" 
                   gutterBottom 
