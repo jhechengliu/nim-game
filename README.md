@@ -2,17 +2,17 @@
 
 ## Overview
 
-This project is a reference implementation of the classic impartial‑combinatorial game **Nim**. It includes a fully‑functional command‑line version, an optional web UI, and a provably optimal computer opponent based on the nim‑sum algorithm.
+This project is a modern web implementation of the classic impartial‑combinatorial game **Nim**. It features a beautiful Material-UI interface and a provably optimal computer opponent based on the nim‑sum algorithm.
 
 ## Features
 
-* Two‑player local or Human vs AI play
-* Any number of heaps with user‑defined sizes
-* Optimal, O(h)‑time AI using Sprague–Grundy theory
-* Optional rule toggles: misère play and maximum‑take restriction
-* Clean separation of UI, game logic, and AI layers
-* 95%+ unit‑test coverage
-* Modern web interface with Material-UI components
+* Human vs AI gameplay
+* Configurable number of heaps with user‑defined sizes
+* Optimal AI using Sprague–Grundy theory
+* Game mode options: normal play and misère play
+* Maximum‑take restriction option
+* Modern, responsive web interface
+* Dark theme for comfortable viewing
 
 ## Rules (Normal Play)
 
@@ -32,30 +32,18 @@ The algorithm runs in linear time in the number of heaps and constant space.
 
 ```
 /            Project root
-|-- src/     Core game logic and AI
-|-- ui/      Web front‑end (React + TypeScript)
-|-- tests/   PyTest unit tests
-|-- docs/    Design notes and variant analysis
+|-- web/     Web front‑end (React + TypeScript)
+    |-- src/
+        |-- components/    React components
+        |-- services/      Game logic and AI
 ```
 
 ## Requirements
 
-* Python ≥ 3.9
 * Node.js ≥ 18
 * npm ≥ 9
 
 ## Installation
-
-### Command‑Line Version
-
-```bash
-$ git clone https://example.com/nim‑game.git
-$ cd nim‑game
-$ python -m venv .venv && source .venv/bin/activate
-$ pip install -r requirements.txt
-```
-
-### Web UI
 
 1. Install Node.js and npm:
    - Visit https://nodejs.org/
@@ -66,25 +54,18 @@ $ pip install -r requirements.txt
      npm --version
      ```
 
-2. Install UI dependencies:
+2. Install project dependencies:
    ```bash
-   $ cd ui
+   $ git clone https://example.com/nim‑game.git
+   $ cd nim-game/web
    $ npm install
    ```
 
 ## Running
 
-### Command‑Line Version
-
-```bash
-$ python -m nim_game.cli --heaps 3 4 5 --mode human‑vs‑ai
-```
-
-### Web UI
-
 1. Start the development server:
    ```bash
-   $ cd ui
+   $ cd web
    $ npm run dev
    ```
 
@@ -99,23 +80,22 @@ $ python -m nim_game.cli --heaps 3 4 5 --mode human‑vs‑ai
 * Dark theme for comfortable viewing
 * Interactive heap visualization
 * Configurable game settings:
-  - Custom heap sizes
+  - Number of heaps (3-5)
   - Optional maximum take restriction
   - Misère play toggle
+  - AI difficulty levels (Random/Optimal)
 * Real-time game state updates
 * Clear game over notifications
-
-## Testing
-
-```bash
-$ pytest -q
-```
+* Intuitive controls:
+  - Click heap to select
+  - Use +/- buttons to adjust count
+  - Click anywhere to deselect
 
 ## Contributing
 
 1. Fork the repository and create a feature branch.
-2. Adhere to PEP 8; run `black` and `isort` before committing.
-3. Include unit tests for all new logic.
+2. Follow TypeScript best practices
+3. Include tests for new features
 4. Submit a pull request with a concise description of changes.
 
 ## License
