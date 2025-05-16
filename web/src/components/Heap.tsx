@@ -1,4 +1,6 @@
-import { Box, Button, Stack, Typography } from '@mui/material'
+import { Box, IconButton, Typography } from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import RemoveIcon from '@mui/icons-material/Remove'
 
 interface HeapProps {
   size: number
@@ -12,117 +14,73 @@ interface HeapProps {
 export default function Heap({ size, selected, onSelect, selectedCount, onCountChange, disabled }: HeapProps) {
   const handleCountChange = (delta: number) => {
     if (disabled) return
-
-    // For + button
-    if (delta > 0) {
-      if (!selected) {
-        onSelect()
-      }
-      // Only increment if we haven't reached the heap size
-      if (selectedCount < size) {
-        onCountChange(selectedCount + 1)
-      }
-      return
+    const maxCount = Math.min(3, size)
+    if (delta > 0 && selectedCount >= maxCount) return
+    const newCount = selectedCount + delta
+    if (newCount >= 1 && newCount <= maxCount) {
+      onCountChange(newCount)
     }
+  }
 
-    // For - button
-    if (selected) {
-      const newCount = selectedCount + delta
-      if (newCount >= 0) {
-        onCountChange(newCount)
-      }
+  const handleSelect = () => {
+    if (disabled) return
+    onSelect()
+    if (!selected) {
+      onCountChange(1)
     }
   }
 
   return (
     <Box
       sx={{
-        p: 3,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        minWidth: 180,
+        minHeight: 220,
+        p: 2,
         border: '3px solid',
-        borderColor: selected ? 'primary.main' : 'grey.500',
+        borderColor: selected ? 'primary.main' : 'divider',
         borderRadius: 3,
-        cursor: disabled ? 'not-allowed' : 'pointer',
+        backgroundColor: selected ? 'action.selected' : 'background.paper',
+        cursor: disabled ? 'default' : 'pointer',
         opacity: disabled ? 0.7 : 1,
+        boxShadow: selected ? 4 : 1,
         transition: 'all 0.2s',
-        bgcolor: 'background.paper',
-        boxShadow: selected ? 3 : 1,
-        '&:hover': {
-          borderColor: disabled ? 'grey.500' : 'primary.main',
-          transform: disabled ? 'none' : 'translateY(-4px)',
-          boxShadow: disabled ? 1 : 4,
-        },
+        m: 1,
       }}
-      onClick={(e) => {
-        e.stopPropagation()
-        if (!disabled) {
-          onSelect()
-        }
-      }}
+      onClick={handleSelect}
     >
-      <Stack spacing={3} alignItems="center">
-        <Typography variant="h6" color={selected ? 'primary' : 'text.secondary'}>
-          Heap Size: {size}
-        </Typography>
-
-        <Box
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 1,
-            maxWidth: 200,
-            justifyContent: 'center',
-            p: 2,
-            bgcolor: 'background.default',
-            borderRadius: 2,
-          }}
+      <Typography variant="h6" sx={{ mb: 1, fontWeight: 600 }}>
+        Heap Size: {size}
+      </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', mb: 2, minHeight: 32 }}>
+        {Array.from({ length: size }).map((_, i) => (
+          <Box key={i} sx={{ mx: 0.5, fontSize: 28, color: 'text.primary' }}>●</Box>
+        ))}
+      </Box>
+      <Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', mt: 2, width: '100%' }}>
+        <IconButton
+          size="small"
+          onClick={e => { e.stopPropagation(); handleCountChange(-1) }}
+          disabled={!selected || selectedCount <= 1}
+          sx={{ mx: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
         >
-          {Array.from({ length: size }, (_, i) => (
-            <Box
-              key={i}
-              sx={{
-                width: 24,
-                height: 24,
-                bgcolor: i < selectedCount ? 'primary.main' : 'grey.700',
-                borderRadius: '50%',
-                transition: 'all 0.2s',
-                transform: i < selectedCount ? 'scale(1.1)' : 'scale(1)',
-                boxShadow: i < selectedCount ? 2 : 0,
-              }}
-              role="presentation"
-            />
-          ))}
-        </Box>
-
-        <Stack direction="row" spacing={2}>
-          <Button
-            size="large"
-            variant="outlined"
-            onClick={(e) => {
-              e.stopPropagation()
-              handleCountChange(-1)
-            }}
-            disabled={disabled || selectedCount === 0}
-            sx={{ minWidth: 60 }}
-          >
-            -
-          </Button>
-          <Typography variant="h5" sx={{ minWidth: 40, textAlign: 'center' }}>
-            {selectedCount}
-          </Typography>
-          <Button
-            size="large"
-            variant="outlined"
-            onClick={(e) => {
-              e.stopPropagation()
-              handleCountChange(1)
-            }}
-            disabled={disabled || selectedCount === size}
-            sx={{ minWidth: 60 }}
-          >
-            +
-          </Button>
-        </Stack>
-      </Stack>
+          <RemoveIcon />
+        </IconButton>
+        <Typography variant="h5" component="div" sx={{ minWidth: 32, textAlign: 'center', mx: 1 }}>
+          {selected ? selectedCount : 0}
+        </Typography>
+        <IconButton
+          size="small"
+          onClick={e => { e.stopPropagation(); handleCountChange(1) }}
+          disabled={!selected || selectedCount >= Math.min(3, size)}
+          sx={{ mx: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}
+        >
+          <AddIcon />
+        </IconButton>
+      </Box>
     </Box>
   )
 } 

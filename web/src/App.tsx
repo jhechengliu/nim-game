@@ -1,10 +1,11 @@
-import { useState } from 'react'
-import { Container, Typography, Box, Button, Stack, Paper, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, Divider, IconButton, Menu, MenuItem as MuiMenuItem } from '@mui/material'
+import { useState, useEffect, useRef } from 'react'
+import { Container, Typography, Box, Button, Stack, Paper, FormControl, InputLabel, Select, MenuItem, SelectChangeEvent, Divider, IconButton, Menu, MenuItem as MuiMenuItem, ToggleButton, ToggleButtonGroup } from '@mui/material'
 import SettingsIcon from '@mui/icons-material/Settings'
 import Heap from './components/Heap'
-import { GameState, Difficulty, makeMove, getOptimalMove } from './services/gameService'
+import { GameState, Difficulty, makeMove, createGameState, FirstMove } from './services/gameState'
+import { getOptimalMove } from './services/gameAI'
 
-type GameMode = 'normal' | 'misere'
+type GameMode = 'normal' | 'misere' | 'pvp'
 type GamePhase = 'lobby' | 'settings' | 'playing' | 'gameOver'
 
 interface GameOption {
@@ -17,73 +18,127 @@ interface GameOption {
 
 function App() {
   const [gamePhase, setGamePhase] = useState<GamePhase>('lobby')
-  const [gameState, setGameState] = useState<GameState>({
-    heaps: [3, 4, 5],
-    currentPlayer: 'human',
-    gameOver: false,
-    winner: null,
-    maxTake: null,
-    misere: false
-  })
-
+  const [gameState, setGameState] = useState<GameState>(createGameState(3, 'player'))
   const [selectedHeap, setSelectedHeap] = useState<number | null>(null)
   const [selectedCount, setSelectedCount] = useState<number>(0)
   const [difficulty, setDifficulty] = useState<Difficulty>('optimal')
-  const [gameMode, setGameMode] = useState<GameMode>('normal')
-  const [heapCount, setHeapCount] = useState<number>(3)
-  const [maxTake, setMaxTake] = useState<number | null>(null)
+  const [gameMode, setGameMode] = useState<'normal' | 'misere'>('normal')
+  const [playMode, setPlayMode] = useState<'pvp' | 'pve'>('pve')
+  const [pvpNames] = useState<{ player1: string; player2: string }>({ player1: 'Player 1', player2: 'Player 2' })
+  const [baseHeapSize, setBaseHeapSize] = useState<number>(3)
+  const [firstMove, setFirstMove] = useState<FirstMove>('player')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const aiTimeoutRef = useRef<number | null>(null)
 
   const handleDifficultyChange = (event: SelectChangeEvent) => {
     setDifficulty(event.target.value as Difficulty)
   }
 
-  const handleGameModeChange = (event: SelectChangeEvent) => {
-    setGameMode(event.target.value as GameMode)
+  const handleGameModeChange = (_: React.MouseEvent<HTMLElement>, value: 'normal' | 'misere') => {
+    if (value !== null) setGameMode(value)
   }
 
-  const handleHeapCountChange = (event: SelectChangeEvent) => {
-    setHeapCount(Number(event.target.value))
+  const handlePlayModeChange = (_: React.MouseEvent<HTMLElement>, value: 'pvp' | 'pve') => {
+    if (value !== null) setPlayMode(value)
   }
 
-  const handleMaxTakeChange = (event: SelectChangeEvent) => {
-    const value = event.target.value
-    setMaxTake(value === 'unlimited' ? null : Number(value))
+  const handleBaseHeapSizeChange = (event: SelectChangeEvent) => {
+    setBaseHeapSize(Number(event.target.value))
+  }
+
+  const handleFirstMoveChange = (event: SelectChangeEvent) => {
+    setFirstMove(event.target.value as FirstMove)
   }
 
   const handleStartGame = () => {
-    const initialHeaps = Array.from({ length: heapCount }, (_, i) => i + 3)
-    setGameState({
-      heaps: initialHeaps,
-      currentPlayer: 'human',
-      gameOver: false,
-      winner: null,
-      maxTake,
-      misere: gameMode === 'misere'
-    })
+    if (playMode === 'pvp') {
+      const pvpState: GameState = {
+        heaps: [baseHeapSize, baseHeapSize + 1, baseHeapSize + 2],
+        currentPlayer: 'player1',
+        gameOver: false,
+        winner: null,
+        maxTake: 3,
+        misere: gameMode === 'misere',
+        baseHeapSize
+      };
+      setGameState(pvpState);
+    } else {
+      setGameState(createGameState(baseHeapSize, firstMove, gameMode === 'misere'))
+    }
     setGamePhase('playing')
   }
 
   const handleHeapSelect = (heapIndex: number) => {
-    if (gameState.currentPlayer !== 'human' || gameState.gameOver) return
-    setSelectedHeap(heapIndex)
+    if (gameState.gameOver) return;
+    if (
+      ((playMode === 'pvp' && (gameState.currentPlayer === 'player1' || gameState.currentPlayer === 'player2')) ||
+      (playMode !== 'pvp' && gameState.currentPlayer === 'human')) &&
+      gameState.heaps[heapIndex] > 0
+    ) {
+      setSelectedHeap(heapIndex);
+      if (selectedHeap !== heapIndex) {
+        setSelectedCount(Math.min(1, gameState.heaps[heapIndex], gameState.maxTake));
+      }
+    }
   }
 
   const handleCountChange = (count: number) => {
-    if (gameState.currentPlayer !== 'human' || gameState.gameOver) return
-    setSelectedCount(count)
+    if (gameState.gameOver) return;
+    if (
+      (playMode === 'pvp' && (gameState.currentPlayer === 'player1' || gameState.currentPlayer === 'player2')) ||
+      (playMode !== 'pvp' && gameState.currentPlayer === 'human')
+    ) {
+      if (selectedHeap !== null) {
+        const maxAllowed = Math.min(gameState.heaps[selectedHeap], gameState.maxTake);
+        let clamped = count;
+        if (clamped < 1) clamped = 1;
+        if (clamped > maxAllowed) clamped = maxAllowed;
+        setSelectedCount(clamped);
+      }
+    }
   }
+
+  // Final clamp: ensure selectedCount is always valid
+  useEffect(() => {
+    if (selectedHeap !== null) {
+      const maxAllowed = Math.min(gameState.heaps[selectedHeap], gameState.maxTake);
+      if (selectedCount > maxAllowed) {
+        setSelectedCount(maxAllowed);
+      }
+      if (selectedCount < 1 && maxAllowed > 0) {
+        setSelectedCount(1);
+      }
+    }
+  }, [selectedCount, selectedHeap, gameState.heaps, gameState.maxTake]);
 
   const handleMove = () => {
     if (selectedHeap === null || selectedCount === 0) return
-    
-    const newState = makeMove(gameState, selectedHeap, selectedCount)
+    let newState
+    if (playMode === 'pvp') {
+      // PvP: alternate between player1 and player2
+      const nextPlayer = gameState.currentPlayer === 'player1' ? 'player2' : 'player1'
+      const heaps = [...gameState.heaps]
+      heaps[selectedHeap] -= selectedCount
+      const isTerminal = heaps.every(h => h === 0)
+      newState = {
+        ...gameState,
+        heaps,
+        currentPlayer: isTerminal ? gameState.currentPlayer : nextPlayer,
+        gameOver: isTerminal,
+        winner: isTerminal ? gameState.currentPlayer : null
+      }
+      setGameState(newState)
+      setSelectedHeap(null)
+      setSelectedCount(0)
+      if (newState.gameOver) setGamePhase('gameOver')
+      return
+    }
+    // Normal/AI mode
+    newState = makeMove(gameState, selectedHeap, selectedCount)
     setGameState(newState)
     setSelectedHeap(null)
     setSelectedCount(0)
-
     if (!newState.gameOver && newState.currentPlayer === 'ai') {
-      // AI's turn
       setTimeout(() => {
         const aiMove = getOptimalMove(newState, difficulty)
         if (aiMove) {
@@ -108,17 +163,10 @@ function App() {
   }
 
   const handleNewGame = () => {
-    setGameState({
-      heaps: [3, 4, 5],
-      currentPlayer: 'human',
-      gameOver: false,
-      winner: null,
-      maxTake: null,
-      misere: false
-    })
+    setGameState(createGameState(baseHeapSize, firstMove, gameMode === 'misere'))
     setSelectedHeap(null)
     setSelectedCount(0)
-    setGamePhase('settings')
+    setGamePhase('playing')
     handleSettingsClose()
   }
 
@@ -128,8 +176,46 @@ function App() {
   }
 
   const handleStartSettings = () => {
+    setAnchorEl(null);
     setGamePhase('settings')
   }
+
+  // Automatically trigger AI move when it's AI's turn and game is not over
+  useEffect(() => {
+    if (gameState.currentPlayer === 'ai' && !gameState.gameOver) {
+      // Prevent multiple timeouts
+      if (aiTimeoutRef.current) {
+        clearTimeout(aiTimeoutRef.current)
+      }
+      aiTimeoutRef.current = window.setTimeout(() => {
+        const aiMove = getOptimalMove(gameState, difficulty)
+        if (aiMove) {
+          const aiState = makeMove(gameState, aiMove.heapIndex, aiMove.count)
+          setGameState(aiState)
+          if (aiState.gameOver) {
+            setGamePhase('gameOver')
+          }
+        }
+      }, 500)
+    }
+    // Cleanup on unmount or when gameState changes
+    return () => {
+      if (aiTimeoutRef.current) {
+        clearTimeout(aiTimeoutRef.current)
+        aiTimeoutRef.current = null
+      }
+    }
+  }, [gameState, difficulty])
+
+  // Clamp selectedCount if heap size shrinks
+  useEffect(() => {
+    if (selectedHeap !== null) {
+      const maxAllowed = Math.min(gameState.heaps[selectedHeap], gameState.maxTake)
+      if (selectedCount > maxAllowed) {
+        setSelectedCount(maxAllowed)
+      }
+    }
+  }, [gameState.heaps, gameState.maxTake, selectedHeap])
 
   const renderLobby = () => (
     <Container 
@@ -239,7 +325,8 @@ function App() {
                 title: 'Modes:',
                 items: [
                   { label: 'Normal', desc: 'Take last to win' },
-                  { label: 'Misère', desc: 'Take last to lose' }
+                  { label: 'Misère', desc: 'Take last to lose' },
+                  { label: 'PvP', desc: 'Player vs Player' }
                 ]
               },
               {
@@ -308,51 +395,110 @@ function App() {
   )
 
   const renderSettings = () => (
-    <Paper elevation={3} sx={{ p: 4, maxWidth: 600, mx: 'auto' }}>
-      <Typography variant="h4" component="h1" gutterBottom align="center">
-        Nim Game Settings
-      </Typography>
-      <Stack spacing={3}>
-        <FormControl fullWidth>
-          <InputLabel>Difficulty</InputLabel>
-          <Select value={difficulty} label="Difficulty" onChange={handleDifficultyChange}>
-            <MenuItem value="random">Random</MenuItem>
-            <MenuItem value="optimal">Optimal</MenuItem>
-          </Select>
-        </FormControl>
-
-        <FormControl fullWidth>
-          <InputLabel>Game Mode</InputLabel>
-          <Select value={gameMode} label="Game Mode" onChange={handleGameModeChange}>
-            <MenuItem value="normal">Normal</MenuItem>
-            <MenuItem value="misere">Misère</MenuItem>
-          </Select>
-        </FormControl>
-
-        <FormControl fullWidth>
-          <InputLabel>Number of Heaps</InputLabel>
-          <Select value={String(heapCount)} label="Number of Heaps" onChange={handleHeapCountChange}>
-            <MenuItem value="3">3</MenuItem>
-            <MenuItem value="4">4</MenuItem>
-            <MenuItem value="5">5</MenuItem>
-          </Select>
-        </FormControl>
-
-        <FormControl fullWidth>
-          <InputLabel>Maximum Take</InputLabel>
-          <Select value={maxTake === null ? 'unlimited' : String(maxTake)} label="Maximum Take" onChange={handleMaxTakeChange}>
-            <MenuItem value="unlimited">Unlimited</MenuItem>
-            <MenuItem value="1">1</MenuItem>
-            <MenuItem value="2">2</MenuItem>
-            <MenuItem value="3">3</MenuItem>
-          </Select>
-        </FormControl>
-
-        <Button variant="contained" size="large" onClick={handleStartGame}>
-          Start Game
-        </Button>
-      </Stack>
-    </Paper>
+    <Box>
+      <Container maxWidth="lg" sx={{ mb: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h3" component="h1">
+            Nim Game
+          </Typography>
+          <Box sx={{ ml: 3, flex: 1 }} />
+          <IconButton
+            size="large"
+            onClick={handleSettingsClick}
+            sx={{ color: 'primary.main' }}
+          >
+            <SettingsIcon fontSize="large" />
+          </IconButton>
+          <Menu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleSettingsClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+          >
+            <MuiMenuItem onClick={handleNewGame}>
+              Restart
+            </MuiMenuItem>
+            <MuiMenuItem onClick={handleStartSettings}>
+              Game Settings
+            </MuiMenuItem>
+            <MuiMenuItem onClick={handleBackToLobby}>
+              Back to Lobby
+            </MuiMenuItem>
+          </Menu>
+        </Box>
+      </Container>
+      <Paper elevation={3} sx={{ p: 4, maxWidth: 600, mx: 'auto' }}>
+        <Typography variant="h4" component="h1" gutterBottom align="center">
+          Nim Game Settings
+        </Typography>
+        <Stack spacing={3}>
+          <Box>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>Play Mode</Typography>
+            <ToggleButtonGroup
+              value={playMode}
+              exclusive
+              onChange={handlePlayModeChange}
+              aria-label="play mode"
+              fullWidth
+            >
+              <ToggleButton value="pve" aria-label="PvE">PvE (Player vs AI)</ToggleButton>
+              <ToggleButton value="pvp" aria-label="PvP">PvP (Player vs Player)</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          <Box>
+            <Typography variant="subtitle1" sx={{ mb: 1 }}>Game Mode</Typography>
+            <ToggleButtonGroup
+              value={gameMode}
+              exclusive
+              onChange={handleGameModeChange}
+              aria-label="game mode"
+              fullWidth
+            >
+              <ToggleButton value="normal" aria-label="Normal">Normal</ToggleButton>
+              <ToggleButton value="misere" aria-label="Misère">Misère</ToggleButton>
+            </ToggleButtonGroup>
+          </Box>
+          <FormControl fullWidth>
+            <InputLabel>Base Heap Size</InputLabel>
+            <Select value={String(baseHeapSize)} label="Base Heap Size" onChange={handleBaseHeapSizeChange}>
+              <MenuItem value="3">3 (Heaps: 3,4,5)</MenuItem>
+              <MenuItem value="4">4 (Heaps: 4,5,6)</MenuItem>
+              <MenuItem value="5">5 (Heaps: 5,6,7)</MenuItem>
+              <MenuItem value="6">6 (Heaps: 6,7,8)</MenuItem>
+            </Select>
+          </FormControl>
+          {playMode === 'pve' && (
+            <>
+              <FormControl fullWidth>
+                <InputLabel>Difficulty</InputLabel>
+                <Select value={difficulty} label="Difficulty" onChange={handleDifficultyChange}>
+                  <MenuItem value="random">Random</MenuItem>
+                  <MenuItem value="optimal">Optimal</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel>First Move</InputLabel>
+                <Select value={firstMove} label="First Move" onChange={handleFirstMoveChange}>
+                  <MenuItem value="player">Player First</MenuItem>
+                  <MenuItem value="ai">AI First</MenuItem>
+                  <MenuItem value="random">Random</MenuItem>
+                </Select>
+              </FormControl>
+            </>
+          )}
+          <Button variant="contained" size="large" onClick={handleStartGame}>
+            Start Game
+          </Button>
+        </Stack>
+      </Paper>
+    </Box>
   )
 
   const renderGame = () => (
@@ -361,6 +507,11 @@ function App() {
         <Typography variant="h3" component="h1">
           Nim Game
         </Typography>
+        <Box sx={{ ml: 3, flex: 1 }}>
+          <Typography variant="subtitle1" color="text.secondary" sx={{ mt: 1 }}>
+            Mode: {playMode === 'pvp' ? 'PvP' : 'PvE'}, {gameMode === 'normal' ? 'Normal' : 'Misère'}
+          </Typography>
+        </Box>
         <IconButton
           size="large"
           onClick={handleSettingsClick}
@@ -382,7 +533,10 @@ function App() {
           }}
         >
           <MuiMenuItem onClick={handleNewGame}>
-            New Game
+            Restart
+          </MuiMenuItem>
+          <MuiMenuItem onClick={handleStartSettings}>
+            Game Settings
           </MuiMenuItem>
           <MuiMenuItem onClick={handleBackToLobby}>
             Back to Lobby
@@ -399,7 +553,6 @@ function App() {
           justifyContent: 'center',
           alignItems: 'center',
           p: 8,
-          backgroundColor: 'rgba(255, 0, 0, 0.1)',
         }}
         onClick={(e) => {
           // Only deselect if clicking on the background
@@ -418,7 +571,6 @@ function App() {
             position: 'relative', 
             zIndex: 1,
             p: 1,
-            backgroundColor: 'rgba(0, 255, 0, 0.1)',
           }}
         >
           {gameState.heaps.map((size, index) => (
@@ -429,7 +581,12 @@ function App() {
               onSelect={() => handleHeapSelect(index)}
               selectedCount={selectedHeap === index ? selectedCount : 0}
               onCountChange={handleCountChange}
-              disabled={gameState.currentPlayer !== 'human' || gameState.gameOver}
+              disabled={
+                playMode === 'pvp'
+                  ? gameState.gameOver ||
+                    !((gameState.currentPlayer === 'player1' && gamePhase === 'playing') || (gameState.currentPlayer === 'player2' && gamePhase === 'playing'))
+                  : gameState.currentPlayer !== 'human' || gameState.gameOver
+              }
             />
           ))}
         </Stack>
@@ -437,8 +594,12 @@ function App() {
         <Box sx={{ mt: 'auto', textAlign: 'center', width: '100%' }}>
           <Typography variant="h5" gutterBottom>
             {gameState.gameOver
-              ? `Game Over! ${gameState.winner === 'human' ? 'You won!' : 'AI won!'}`
-              : `Current Player: ${gameState.currentPlayer === 'human' ? 'You' : 'AI'}`}
+              ? playMode === 'pvp'
+                ? `Game Over! ${gameState.winner === 'player1' ? pvpNames.player1 : pvpNames.player2} won!`
+                : `Game Over! ${gameState.winner === 'human' ? 'You won!' : 'AI won!'}`
+              : playMode === 'pvp'
+                ? `Current Player: ${gameState.currentPlayer === 'player1' ? pvpNames.player1 : pvpNames.player2}`
+                : `Current Player: ${gameState.currentPlayer === 'human' ? 'You' : 'AI'}`}
           </Typography>
           {gameState.maxTake !== null && (
             <Typography variant="subtitle1" color="text.secondary">
@@ -452,7 +613,13 @@ function App() {
             variant="contained"
             size="large"
             onClick={handleMove}
-            disabled={selectedHeap === null || selectedCount === 0 || gameState.gameOver}
+            disabled={
+              selectedHeap === null ||
+              selectedCount < 1 ||
+              (selectedHeap !== null && selectedCount > gameState.heaps[selectedHeap]) ||
+              (selectedHeap !== null && selectedCount > gameState.maxTake) ||
+              gameState.gameOver
+            }
           >
             Make Move
           </Button>
@@ -467,8 +634,10 @@ function App() {
         <Typography variant="h3" component="h1" gutterBottom>
           Game Over!
         </Typography>
-        <Typography variant="h4" gutterBottom color={gameState.winner === 'human' ? 'success.main' : 'error.main'}>
-          {gameState.winner === 'human' ? 'You Won!' : 'AI Won!'}
+        <Typography variant="h4" gutterBottom color={playMode === 'pvp' ? 'primary.main' : (gameState.winner === 'human' ? 'success.main' : 'error.main')}>
+          {playMode === 'pvp'
+            ? `${gameState.winner === 'player1' ? pvpNames.player1 : pvpNames.player2} Won!`
+            : (gameState.winner === 'human' ? 'You Won!' : 'AI Won!')}
         </Typography>
 
         <Box sx={{ mt: 4, display: 'flex', gap: 2, justifyContent: 'center' }}>
@@ -479,6 +648,14 @@ function App() {
             sx={{ px: 4 }}
           >
             Play Again
+          </Button>
+          <Button 
+            variant="outlined" 
+            size="large" 
+            onClick={handleStartSettings}
+            sx={{ px: 4 }}
+          >
+            Game Settings
           </Button>
           <Button 
             variant="outlined" 
