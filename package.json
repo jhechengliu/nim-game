@@ -1,0 +1,10 @@
+{
+  "name": "nim-game-root",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "cd web && npm run dev",
+    "build": "cd web && npm run build",
+    "preview": "cd web && npm run preview"
+  }
+} 
