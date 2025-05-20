@@ -5,7 +5,6 @@ import Heap from './components/Heap'
 import { GameState, Difficulty, makeMove, createGameState, FirstMove } from './services/gameState'
 import { getOptimalMove } from './services/gameAI'
 
-type GameMode = 'normal' | 'misere' | 'pvp'
 type GamePhase = 'lobby' | 'settings' | 'playing' | 'gameOver'
 
 interface GameOption {
