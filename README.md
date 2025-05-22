@@ -13,6 +13,8 @@ This project is a modern web implementation of the classic impartial‑combinato
 * Maximum‑take restriction option
 * Modern, responsive web interface
 * Dark theme for comfortable viewing
+* Unit tests with Jest
+* GitHub Pages deployment
 
 ## Rules (Normal Play)
 
@@ -35,7 +37,13 @@ The algorithm runs in linear time in the number of heaps and constant space.
 |-- web/     Web front‑end (React + TypeScript)
     |-- src/
         |-- components/    React components
+            |-- Heap.tsx   Heap visualization component
         |-- services/      Game logic and AI
+            |-- gameAI.ts      AI implementation
+            |-- gameService.ts Game service logic
+            |-- gameState.ts   Game state management
+        |-- App.tsx       Main application component
+        |-- main.tsx      Application entry point
 ```
 
 ## Requirements
@@ -73,6 +81,30 @@ The algorithm runs in linear time in the number of heaps and constant space.
    http://localhost:5173
 
 3. To stop the server, press `Ctrl + C` in the terminal.
+
+## Testing
+
+Run the test suite:
+```bash
+$ cd web
+$ npm test
+```
+
+For watch mode during development:
+```bash
+$ npm run test:watch
+```
+
+## Deployment
+
+The application is configured for GitHub Pages deployment. To deploy:
+
+```bash
+$ cd web
+$ npm run deploy
+```
+
+This will build the project and deploy it to the `gh-pages` branch.
 
 ## Web UI Features
 
